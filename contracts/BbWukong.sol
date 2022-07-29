@@ -9,15 +9,16 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 contract BbWukong is ERC721, Pausable, Ownable {
     using SafeMath for uint256;
 
-    uint16[88] public ids;
+    uint16[88] public Ids;
     uint16 private index;
-    uint256 public PRICE = 0.02 ether;
-    uint256 public WL_PRICE = 0.01 ether;
-    uint256 public constant MAX_PER_MINT = 4;
+    uint256 public FREE_MINT_PRICE = 0.00 ether;
+    uint256 public WL_PRICE = 0.088 ether;
+    uint256 public constant MAX_PER_MINT = 1;
     string public baseTokenURI;
     bool public isWhitelistActive = false;
 
-    mapping(address => uint256) private _whitelist;
+    mapping(address => uint256) private _freewhitelist;
+    mapping(address => uint256) private _normalwhitelist;
 
     constructor(string memory baseURI) ERC721("BbWukong", "BBW") {
         setBaseURI(baseURI);
@@ -35,6 +36,12 @@ contract BbWukong is ERC721, Pausable, Ownable {
 
     // mint functions
     function _mintSingle() private {
+        uint256 _purchaseAvailability = MAX_PER_MINT - balanceOf(msg.sender);
+        require(
+            _count > 0 && _count <= _purchaseAvailability,
+            "Max 1 purchase per address."
+        );
+        require(ids.length > _count, "Not enough NFTs left!");
         uint256 _random = uint256(
             keccak256(
                 abi.encodePacked(
@@ -46,6 +53,10 @@ contract BbWukong is ERC721, Pausable, Ownable {
             )
         );
         _safeMint(msg.sender, _pickRandomUniqueId(_random) + 1);
+    }
+
+    function _checkFreeMint() private {
+        require
     }
 
     function mintManyNFT(uint256 _count) public payable {
@@ -97,8 +108,8 @@ contract BbWukong is ERC721, Pausable, Ownable {
         baseTokenURI = _baseTokenURI;
     }
 
-    function setPrice(uint256 _price) public onlyOwner {
-        PRICE = _price;
+    function setFreeMintPrice(uint256 _price) public onlyOwner {
+        FREE_MINT_PRICE = _price;
     }
 
     function setWLPrice(uint256 _price) public onlyOwner {
@@ -109,9 +120,15 @@ contract BbWukong is ERC721, Pausable, Ownable {
         isWhitelistActive = _isWhitelistActive;
     }
 
-    function setWhitelist(address[] calldata addresses) external onlyOwner {
+    function setFreeWhitelist(address[] calldata addresses) external onlyOwner {
         for (uint256 i = 0; i < addresses.length; i++) {
-            _whitelist[addresses[i]] = MAX_PER_MINT;
+            _freewhitelist[addresses[i]] = MAX_PER_MINT;
+        }
+    }
+
+    function setNormalWhitelist(address[] calldata addresses) external onlyOwner {
+        for (uint256 i = 0; i < addresses.length; i++) {
+            _normalwhitelist[addresses[i]] = MAX_PER_MINT;
         }
     }
 
