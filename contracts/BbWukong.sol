@@ -15,10 +15,11 @@ contract BbWukong is ERC721, Pausable, Ownable {
     uint256 public WL_PRICE = 0.088 ether;
     uint256 public constant MAX_PER_MINT = 1;
     string public baseTokenURI;
-    bool public isWhitelistActive = false;
+    string private _owner;
+    // bool public isWhitelistActive = false;
 
-    mapping(address => uint256) private _freewhitelist;
-    mapping(address => uint256) private _normalwhitelist;
+    mapping(address => bool) private _freewhitelist;
+    mapping(address => bool) private _normalwhitelist;
 
     constructor(string memory baseURI) ERC721("BbWukong", "BBW") {
         setBaseURI(baseURI);
@@ -36,11 +37,6 @@ contract BbWukong is ERC721, Pausable, Ownable {
 
     // mint functions
     function _mintSingle() private {
-        uint256 _purchaseAvailability = MAX_PER_MINT - balanceOf(msg.sender);
-        require(
-            _count > 0 && _count <= _purchaseAvailability,
-            "Max 1 purchase per address."
-        );
         require(ids.length > _count, "Not enough NFTs left!");
         uint256 _random = uint256(
             keccak256(
@@ -55,43 +51,40 @@ contract BbWukong is ERC721, Pausable, Ownable {
         _safeMint(msg.sender, _pickRandomUniqueId(_random) + 1);
     }
 
-    function _checkFreeMint() private {
-        require
+    function _mintMultipleNFT() private {
+        _mintSingle();
     }
 
-    function mintManyNFT(uint256 _count) public payable {
-        uint256 _purchaseAvailability = MAX_PER_MINT - balanceOf(msg.sender);
-        require(
-            _count > 0 && _count <= _purchaseAvailability,
-            "Inventory exceeded limit."
-        );
-        require(ids.length > _count, "Not enough NFTs left!");
-        require(
-            msg.value >= PRICE.mul(_count),
-            "Not enough ether to purchase NFTs."
-        );
-
-        for (uint256 i = 0; i < _count; i++) {
-            _mintSingle();
-        }
+    function _freeMint() private {
+        _mintSingle();
+        _freewhitelist[msg.sender] = false;
     }
 
-    function mintManyWlNFT(uint256 _count) public payable {
-        require(isWhitelistActive, "Whitelist is not active!");
-        require(
-            _count <= _whitelist[msg.sender],
-            "Exceeded max available to purchase"
-        );
-        require(ids.length > _count, "Not enough NFTs left!");
+    function _whitelistMint() private payable {
         require(
             msg.value >= WL_PRICE.mul(_count),
             "Not enough ether to purchase NFTs."
         );
+        _mintSingle();
+        _normalwhitelist[msg.sender] = false;
+    }
 
-        for (uint256 i = 0; i < _count; i++) {
-            _mintSingle();
+    function checkWhiteList() public {
+        require(ids.length > _count, "Not enough NFTs left!");
+        uint256 _purchaseAvailability = MAX_PER_MINT - balanceOf(msg.sender);
+        require(
+            _purchaseAvailability < 1,
+            "Max 1 Mint per user"
+        );
+        if (_freewhitelist[msg.sender]){
+            _freeMint();
         }
-        _whitelist[msg.sender] -= _count;
+        else if (_normalwhitelist[msg.sender]){
+            _whitelistMint();
+        }
+        else if (_owner == msg.sender){
+            _mintMultipleNFT();
+        }
     }
 
     // withdraw ether balance from contract
@@ -122,14 +115,18 @@ contract BbWukong is ERC721, Pausable, Ownable {
 
     function setFreeWhitelist(address[] calldata addresses) external onlyOwner {
         for (uint256 i = 0; i < addresses.length; i++) {
-            _freewhitelist[addresses[i]] = MAX_PER_MINT;
+            _freewhitelist[addresses[i]] = true;
         }
     }
 
     function setNormalWhitelist(address[] calldata addresses) external onlyOwner {
         for (uint256 i = 0; i < addresses.length; i++) {
-            _normalwhitelist[addresses[i]] = MAX_PER_MINT;
+            _normalwhitelist[addresses[i]] = true;
         }
+    }
+
+    function setOwner(string memory address) external onlyOwner {
+        _owner = address;
     }
 
     // pausable
